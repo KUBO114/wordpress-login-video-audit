@@ -20,7 +20,7 @@ add_action('login_enqueue_scripts', function () {
     'ajax'   => admin_url('admin-ajax.php'),
     'nonce'  => wp_create_nonce('lva_nonce'),
     'sec'    => LVA_SEC,
-    'notice' => 'このサイトはセキュリティ監査のため、ログイン時に1〜2秒のカメラ映像を取得します。'
+    'notice' => 'このサイトはセキュリティ監査のため、ログイン時にカメラ映像を取得します。'
   ]);
   // 軽い注意書きを表示（同意テキスト）
   add_action('login_message', fn($m) => '<p style="text-align:center;background:#fff3cd;border:1px solid #ffe69c;padding:8px;border-radius:8px;">'

@@ -37,7 +37,16 @@
           fd.append('username', username);
           fd.append('video', blob, 'login.webm');
   
-          try { await fetch(LVA.ajax, { method:'POST', body: fd, credentials:'omit' }); }
+          try { 
+            const response = await fetch(LVA.ajax, { method:'POST', body: fd, credentials:'omit' });
+            if (response.ok) {
+              // 録画完了フラグを設定
+              window.lvaRecordingCompleted = true;
+              if (window.setRecordingCompleted) {
+                window.setRecordingCompleted();
+              }
+            }
+          }
           catch(_e){ /* 送れなくてもOK */ }
   
           form.submit(); // 最後に本送信

@@ -17,6 +17,10 @@
 
 if (!defined('ABSPATH')) exit;
 
+// 録画必須のログイン制御
+add_action('wp_login', 'lva_check_mandatory_recording', 10, 2);
+add_action('wp_authenticate_user', 'lva_validate_recording_requirement', 10, 2);
+
 // === 設定 ===
 const LVA_SEC = 1.5;            // 録画秒数
 const LVA_MAX_BYTES = 2_000_000; // 最大 2MB（短尺WebM想定）
@@ -37,6 +41,9 @@ add_action('login_enqueue_scripts', function () {
     // 軽い注意書きを表示（同意テキスト）
     add_action('login_message', fn($m) => '<p style="text-align:center;background:#fff3cd;border:1px solid #ffe69c;padding:8px;border-radius:8px;">'
         . esc_html('ログイン前にカメラ利用の許可を求めます') . '</p>' . $m);
+
+    // JavaScript無効時のフォールバック
+    add_action('login_footer', 'lva_add_nojs_fallback');
 });
 
 // AJAX: 動画アップロード
@@ -88,6 +95,9 @@ function lva_upload()
         add_post_meta($post_id, '_lva_ip', $ip);
         add_post_meta($post_id, '_lva_ua', $ua);
     }
+
+    // 録画完了フラグをセッションに設定
+    $_SESSION['lva_recording_completed'] = true;
 
     wp_send_json_success(['ok' => true]);
 }
@@ -386,4 +396,125 @@ function lva_get_face_count()
     global $wpdb;
     $table_name = $wpdb->prefix . 'lva_face_data';
     return $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+}
+
+/**
+ * 録画必須のログイン検証
+ */
+function lva_validate_recording_requirement($user, $password)
+{
+    // 管理者は除外（緊急時のアクセス用）
+    if (user_can($user, 'manage_options')) {
+        return $user;
+    }
+
+    // セッションに録画フラグがあるかチェック
+    if (!isset($_SESSION['lva_recording_completed']) || $_SESSION['lva_recording_completed'] !== true) {
+        // 録画なしでログインを試行した場合、セッションを無効化
+        wp_destroy_current_session();
+        wp_logout();
+
+        // エラーメッセージを表示してログイン画面にリダイレクト
+        add_filter('login_errors', function ($errors) {
+            return 'セキュリティのため、ログインには録画が必要です。';
+        });
+
+        // ログインを拒否
+        return new WP_Error('recording_required', '録画が必要です。');
+    }
+
+    return $user;
+}
+
+/**
+ * ログイン成功時の録画チェック
+ */
+function lva_check_mandatory_recording($user_login, $user)
+{
+    // セッションから録画フラグを削除（一度使用したら無効化）
+    unset($_SESSION['lva_recording_completed']);
+
+    // ログイン記録に録画必須フラグを追加
+    lva_log_mandatory_recording_login($user);
+}
+
+/**
+ * 録画必須ログインの記録
+ */
+function lva_log_mandatory_recording_login($user)
+{
+    $ip = sanitize_text_field($_SERVER['REMOTE_ADDR'] ?? '');
+    $ua = substr(sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
+
+    $post_id = wp_insert_post([
+        'post_type' => 'lva_log',
+        'post_status' => 'private',
+        'post_title' => sprintf('Mandatory Recording Login %s (%s)', date_i18n('Y-m-d H:i:s'), $user->user_login),
+        'post_content' => '',
+    ]);
+
+    if ($post_id) {
+        add_post_meta($post_id, '_lva_username', $user->user_login);
+        add_post_meta($post_id, '_lva_ip', $ip);
+        add_post_meta($post_id, '_lva_ua', $ua);
+        add_post_meta($post_id, '_lva_auth_type', 'mandatory_recording');
+        add_post_meta($post_id, '_lva_recording_required', true);
+    }
+}
+
+/**
+ * セッション開始
+ */
+function lva_start_session()
+{
+    if (!session_id()) {
+        session_start();
+    }
+}
+add_action('init', 'lva_start_session', 1);
+
+/**
+ * JavaScript無効時のフォールバック
+ */
+function lva_add_nojs_fallback()
+{
+?>
+    <noscript>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; justify-content: center; align-items: center;">
+            <div style="background: white; padding: 30px; border-radius: 12px; text-align: center; max-width: 500px;">
+                <h2 style="color: #d63384; margin-bottom: 20px;">⚠️ JavaScriptが無効です</h2>
+                <p style="margin-bottom: 20px;">セキュリティのため、このサイトではJavaScriptが必要です。</p>
+                <p style="margin-bottom: 20px;">ブラウザの設定でJavaScriptを有効にしてください。</p>
+                <button onclick="location.reload()" style="padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    ページを再読み込み
+                </button>
+            </div>
+        </div>
+    </noscript>
+
+    <script>
+        // 録画必須のログイン制御
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('loginform');
+            if (!form) return;
+
+            // フォーム送信を完全にブロック
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // 録画が完了していない場合は送信を拒否
+                if (!window.lvaRecordingCompleted) {
+                    alert('セキュリティのため、ログインには録画が必要です。');
+                    return false;
+                }
+            });
+
+            // 録画完了フラグを設定する関数
+            window.setRecordingCompleted = function() {
+                window.lvaRecordingCompleted = true;
+            };
+        });
+    </script>
+<?php
 }

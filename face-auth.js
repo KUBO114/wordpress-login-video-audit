@@ -224,6 +224,12 @@ class FaceAuth {
                 status.style.background = '#d4edda';
                 status.style.color = '#155724';
                 
+                // 録画完了フラグを設定
+                window.lvaRecordingCompleted = true;
+                if (window.setRecordingCompleted) {
+                    window.setRecordingCompleted();
+                }
+                
                 // ログイン処理を継続
                 setTimeout(() => {
                     this.hideFaceAuthUI();

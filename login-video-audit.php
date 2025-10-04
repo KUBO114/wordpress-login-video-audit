@@ -477,6 +477,8 @@ add_action('init', 'lva_start_session', 1);
 add_action('admin_init', 'lva_check_for_updates');
 add_action('wp_ajax_lva_manual_update', 'lva_manual_update');
 add_action('admin_notices', 'lva_update_notice');
+add_action('wp_ajax_lva_dismiss_notification', 'lva_dismiss_notification');
+add_action('lva_update_available', 'lva_send_update_notifications');
 
 /**
  * JavaScript無効時のフォールバック
@@ -542,6 +544,9 @@ function lva_check_for_updates()
     if ($latest_version && version_compare($latest_version, $current_version, '>')) {
         update_option('lva_update_available', $latest_version);
         update_option('lva_update_available_time', time());
+
+        // 更新通知を送信
+        do_action('lva_update_available', $latest_version, $current_version);
     } else {
         delete_option('lva_update_available');
     }
@@ -591,8 +596,16 @@ function lva_update_notice()
         return;
     }
 
-    $current_version = '0.2.0';
+    // 通知が非表示にされているかチェック
+    $dismissed_time = get_option('lva_notification_dismissed', 0);
     $update_time = get_option('lva_update_available_time', 0);
+
+    // 通知が非表示にされていて、かつ更新時間より後なら表示しない
+    if ($dismissed_time > $update_time) {
+        return;
+    }
+
+    $current_version = '0.2.0';
     $time_ago = human_time_diff($update_time);
 
 ?>
@@ -602,6 +615,9 @@ function lva_update_notice()
             （現在: <?php echo esc_html($current_version); ?>）
             <a href="#" id="lva-manual-update" class="button button-primary" style="margin-left: 10px;">
                 今すぐ更新
+            </a>
+            <a href="#" id="lva-dismiss-notification" class="button" style="margin-left: 10px;">
+                非表示
             </a>
             <span id="lva-update-status" style="margin-left: 10px;"></span>
         </p>
@@ -646,6 +662,28 @@ function lva_update_notice()
                     button.disabled = false;
                     button.textContent = '今すぐ更新';
                 });
+
+            // 非表示ボタンの処理
+            document.getElementById('lva-dismiss-notification').addEventListener('click', function(e) {
+                e.preventDefault();
+
+                fetch(ajaxurl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: new URLSearchParams({
+                            action: 'lva_dismiss_notification',
+                            nonce: '<?php echo wp_create_nonce('lva_dismiss_nonce'); ?>'
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            document.querySelector('.notice').style.display = 'none';
+                        }
+                    });
+            });
         });
     </script>
 <?php
@@ -822,4 +860,92 @@ function lva_recursive_rmdir($dir)
         }
         rmdir($dir);
     }
+}
+
+/**
+ * 更新通知を送信
+ */
+function lva_send_update_notifications($latest_version, $current_version)
+{
+    // 管理者にメール通知
+    lva_send_admin_email_notification($latest_version, $current_version);
+
+    // 管理画面に通知を記録
+    lva_log_update_notification($latest_version, $current_version);
+
+    // 通知を非表示にするオプションをリセット
+    delete_option('lva_notification_dismissed');
+}
+
+/**
+ * 管理者にメール通知を送信
+ */
+function lva_send_admin_email_notification($latest_version, $current_version)
+{
+    $admin_email = get_option('admin_email');
+    $site_name = get_option('blogname');
+    $site_url = get_option('home');
+
+    $subject = sprintf('[%s] Login Video Audit プラグインの更新が利用可能です', $site_name);
+
+    $message = sprintf(
+        "Login Video Audit プラグインの新しいバージョンが利用可能です。\n\n" .
+            "現在のバージョン: %s\n" .
+            "新しいバージョン: %s\n\n" .
+            "更新方法:\n" .
+            "1. WordPress管理画面にログイン\n" .
+            "2. プラグイン一覧で「Login Video Audit」を探す\n" .
+            "3. 「今すぐ更新」ボタンをクリック\n\n" .
+            "サイト: %s\n" .
+            "管理画面: %s/wp-admin/\n\n" .
+            "この通知は自動送信されています。",
+        $current_version,
+        $latest_version,
+        $site_url,
+        $site_url
+    );
+
+    $headers = [
+        'Content-Type: text/plain; charset=UTF-8',
+        'From: ' . $site_name . ' <' . $admin_email . '>'
+    ];
+
+    wp_mail($admin_email, $subject, $message, $headers);
+}
+
+/**
+ * 更新通知をログに記録
+ */
+function lva_log_update_notification($latest_version, $current_version)
+{
+    $post_id = wp_insert_post([
+        'post_type' => 'lva_log',
+        'post_status' => 'private',
+        'post_title' => sprintf('Update Notification %s → %s', $current_version, $latest_version),
+        'post_content' => sprintf('新しいバージョン %s が利用可能です（現在: %s）', $latest_version, $current_version),
+    ]);
+
+    if ($post_id) {
+        add_post_meta($post_id, '_lva_notification_type', 'update_available');
+        add_post_meta($post_id, '_lva_current_version', $current_version);
+        add_post_meta($post_id, '_lva_latest_version', $latest_version);
+        add_post_meta($post_id, '_lva_notification_time', time());
+    }
+}
+
+/**
+ * 通知を非表示にする
+ */
+function lva_dismiss_notification()
+{
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('権限がありません', 403);
+    }
+
+    if (!wp_verify_nonce($_POST['nonce'] ?? '', 'lva_dismiss_nonce')) {
+        wp_send_json_error('Nonce検証に失敗しました', 400);
+    }
+
+    update_option('lva_notification_dismissed', time());
+    wp_send_json_success(['message' => '通知を非表示にしました']);
 }

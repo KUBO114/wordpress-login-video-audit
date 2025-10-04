@@ -1,150 +1,254 @@
-# WordPress Login Video Audit Plugin
+# ログイン動画監査 (Login Video Audit)
 
-WordPressのログイン時に顔動画を取得して保存する、シンプルなセキュリティ監査プラグインです。
+セキュリティ監査のためにログイン時に短い動画クリップをキャプチャするWordPressプラグインです。
 
-## 🎯 概要
+## 説明
 
-このプラグインは、ログイン試行時にユーザーのカメラから約1.5秒の動画を取得し、セキュリティ監査目的で保存します。不正アクセスの追跡や、セキュリティインシデントの調査に役立ちます。
+ログイン動画監査は、ユーザーがログインする際に1〜2秒の短い動画クリップを記録することで、WordPressサイトのセキュリティを強化します。これらの動画は安全に保存され、サイト管理者のみがアクセスでき、セキュリティ監視とインシデント調査のための貴重な監査証跡を提供します。
 
-## ✨ 特徴
+## 機能
 
-- 🎥 **自動動画取得**: ログイン時に自動的に1.5秒の動画を録画
-- 🔒 **セキュア**: .htaccessで動画ファイルへの直接アクセスを遮断
-- 📝 **シンプルなログ**: テキストファイルでログを管理
-- 🚀 **軽量**: 最小限のコード（PHP: 58行、JS: 40行）
-- 🎯 **非侵襲的**: カメラ許可が拒否されてもログインは継続可能
-- 💾 **容量制限**: 動画サイズを2MBに制限
+- **自動動画キャプチャ**: ログイン時に1〜2秒の動画を記録
+- **安全な保存**: .htaccess制限付きの保護されたディレクトリに動画を保存
+- **管理者専用アクセス**: 管理者のみが録画動画を閲覧可能
+- **非侵襲的**: 動画キャプチャ失敗でもログインは妨げられない
+- **プライバシー重視**: カメラアクセス前にユーザーに通知
+- **整理された保存**: 日付（年/月）による自動ファイル整理
+- **軽量**: ログインパフォーマンスへの影響が最小限
 
-## 📋 要件
+## 要件
 
 - WordPress 5.0以上
 - PHP 7.4以上
-- モダンブラウザ（MediaRecorder API対応）
-  - Chrome 47+
-  - Firefox 25+
-  - Safari 14.1+
-  - Edge 79+
+- MediaRecorder APIをサポートする最新ブラウザ（Chrome、Firefox、Edge、Safari 14.1+）
+- WordPressアップロードディレクトリへの書き込み権限
 
-## 🚀 インストール
+## インストール
 
-1. このリポジトリをWordPressの`wp-content/plugins/`ディレクトリにクローン：
+### WordPress管理画面から
 
-```bash
-cd wp-content/plugins/
-git clone https://github.com/YOUR_USERNAME/wordpress-login-video-audit.git login-video-audit
+1. プラグインのZIPファイルをダウンロード
+2. WordPress管理画面で**プラグイン > 新規追加**に移動
+3. **プラグインのアップロード**をクリックしてZIPファイルを選択
+4. **今すぐインストール**をクリックし、次に**有効化**
+
+### 手動インストール
+
+1. `login-video-audit`フォルダを`/wp-content/plugins/`にアップロード
+2. WordPressの**プラグイン**メニューからプラグインを有効化
+3. 設定不要 - プラグインは自動的に動作します
+
+## 使用方法
+
+### 録画された動画の閲覧
+
+1. WordPress管理画面にログイン
+2. 管理メニューの**ログイン動画**に移動
+3. 録画されたログイン試行のリストを表示
+4. **再生/ダウンロード**をクリックして特定の動画を表示
+
+### エンドユーザー向け
+
+ログイン時、ユーザーにはセキュリティ目的でカメラアクセスが要求される旨の簡単な通知が表示されます。動画キャプチャの成否に関わらず、ログインプロセスは通常通り続行されます。
+
+## プライバシーとコンプライアンス
+
+### ユーザー通知
+
+プラグインはログイン画面に動画がキャプチャされることをユーザーに通知する通知を表示します。これはプライバシー規制下での透明性要件を満たすのに役立ちます。
+
+### データ保存
+
+- 動画はサーバーにローカルで保存されます
+- データは外部サービスに送信されません
+- ファイルは直接のWebアクセスから保護されています
+- 管理者のみが動画を閲覧できます
+
+### コンプライアンス推奨事項
+
+1. **プライバシーポリシーの更新**: ログイン時の動画キャプチャに関する開示を追加
+2. **法的レビュー**: 地域のプライバシー法に関して法律顧問に相談
+3. **データ保持**: 適切な保持と削除ポリシーを実装
+4. **ユーザー同意**: 法律で義務付けられている場合は、明示的な同意メカニズムの追加を検討
+5. **アクセスログ**: 録画された動画にアクセスしているユーザーを監視
+
+## 設定
+
+### 録画時間の調整
+
+`login-video-audit.php`を編集し、定数を変更します：
+
+```php
+define( 'LVA_SEC', 1.5 ); // 希望の秒数に変更（例：2.0）
 ```
 
-2. WordPress管理画面の「プラグイン」メニューから「Login Video Audit」を有効化
+### ファイルサイズ制限の調整
 
-## 📁 ファイル構成
-
-```
-login-video-audit/
-├── login-video-audit.php  # メインプラグインファイル
-├── login-video.js         # フロントエンド JavaScript
-├── README.md              # このファイル
-└── .gitignore
+```php
+define( 'LVA_MAX_BYTES', 2000000 ); // 希望のバイト数に変更
 ```
 
-## 🔧 使い方
+### 保存ディレクトリの変更
 
-プラグインを有効化すると、自動的に以下の動作を行います：
+```php
+define( 'LVA_DIR', 'login-videos' ); // ディレクトリ名を変更
+```
 
-1. ユーザーがログインフォームを送信
-2. カメラへのアクセス許可を要求
-3. 1.5秒間の動画を録画（WebM形式）
-4. 動画を`/wp-content/uploads/login-videos/`に保存
-5. ログ情報を`access.log`に記録
-6. ログイン処理を継続
+## 技術詳細
 
-### ログの確認
+### ファイル形式
 
-動画とログファイルは以下の場所に保存されます：
+- **コンテナ**: WebM
+- **ビデオコーデック**: VP8
+- **一般的なサイズ**: 動画1つあたり100〜500KB
+- **最大サイズ**: 2MB（設定可能）
+
+### 保存構造
 
 ```
 /wp-content/uploads/login-videos/
-├── .htaccess                          # アクセス制限
-├── access.log                         # ログファイル
-├── 20251004_114200_abc123.webm       # 動画ファイル
-└── 20251004_114530_def456.webm
+├── 2024/
+│   ├── 01/
+│   │   ├── .htaccess
+│   │   ├── lva_20240115_143022_abc123.webm
+│   │   └── lva_20240115_150033_def456.webm
+│   └── 02/
+│       ├── .htaccess
+│       └── ...
 ```
 
-**ログファイルの形式：**
+### セキュリティ対策
+
+1. **ディレクトリ保護**: .htaccessファイルが直接のWebアクセスを防止
+2. **Nonce検証**: すべてのAJAXリクエストでWordPress nonceを使用
+3. **権限チェック**: 動画アクセスには`manage_options`権限が必要
+4. **入力サニタイゼーション**: すべてのユーザー入力がサニタイズされる
+5. **ファイル検証**: アップロードサイズとタイプが検証される
+
+## トラブルシューティング
+
+### 動画が録画されない
+
+- ブラウザコンソールでJavaScriptエラーを確認
+- ブラウザがMediaRecorder APIをサポートしていることを確認
+- カメラ許可が付与されていることを確認
+- アップロードディレクトリへのサーバー書き込み権限を確認
+
+### 動画を表示できない
+
+- 管理者としてログインしていることを確認
+- 動画ファイルのファイル権限を確認
+- .htaccessが管理者アクセスをブロックしていないことを確認
+
+### ファイルサイズが大きい
+
+- 録画時間を短縮（LVA_SEC定数）
+- 最大ファイルサイズ制限を下げる
+- カメラ解像度設定を検討
+
+## 開発
+
+### ファイル構造
+
 ```
-[2025-10-04 11:42:00] User: admin, IP: 192.168.1.1, File: 20251004_114200_abc123.webm
-[2025-10-04 11:45:30] User: editor, IP: 192.168.1.2, File: 20251004_114530_def456.webm
+login-video-audit/
+├── login-video-audit.php  # Main plugin file
+├── login-video.js          # Frontend JavaScript
+├── readme.txt              # WordPress.org readme
+├── README.md               # This file
+├── uninstall.php           # Uninstall cleanup
+└── LICENSE                 # GPL v2 license
 ```
 
-### 動画ファイルへのアクセス
+### フックとフィルター
 
-動画ファイルは`.htaccess`で保護されているため、直接URLでアクセスできません。サーバーに直接アクセスして確認してください：
+プラグインは標準のWordPressフックを使用します：
 
-```bash
-# SSHでサーバーにアクセス
-cd /path/to/wordpress/wp-content/uploads/login-videos/
+- `login_enqueue_scripts` - Enqueue JavaScript on login page
+- `login_message` - Display notice to users
+- `wp_ajax_nopriv_lva_upload` - Handle video uploads
+- `init` - Register custom post type
+- `manage_lva_log_posts_columns` - Customize admin columns
+- `admin_post_lva_dl` - Handle video downloads
 
-# ログを確認
-cat access.log
+## 貢献
 
-# 動画をダウンロード
-scp user@server:/path/to/wordpress/wp-content/uploads/login-videos/*.webm ./
+貢献を歓迎します！以下の手順をお願いします：
+
+1. リポジトリをフォーク
+2. 機能ブランチを作成
+3. 変更を加える
+4. プルリクエストを送信
+
+## サポート
+
+バグレポートと機能リクエストについては、GitHubでissueを開いてください：
+https://github.com/yourusername/login-video-audit
+
+## ライセンス
+
+このプラグインはGPL v2以降のライセンスで提供されています。
+
+```
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 ```
 
-## ⚙️ カスタマイズ
+## クレジット
 
-### 録画時間の変更
+開発者：[あなたの名前]
 
-`login-video.js`の35行目を編集：
+## 変更履歴
 
-```javascript
-setTimeout(() => recorder.stop(), 1500); // 1500ms = 1.5秒
-```
+### 1.0.0 - 2024-01-15
 
-### 最大ファイルサイズの変更
-
-`login-video-audit.php`の24行目を編集：
-
-```php
-if (!$video || $video['error'] !== UPLOAD_ERR_OK || $video['size'] > 2000000) {
-```
-
-## 🔒 セキュリティ
-
-- 動画ファイルは`.htaccess`で保護され、直接アクセス不可
-- nonceトークンによるCSRF対策
-- ファイル名にランダム文字列を使用
-- サニタイゼーション処理を実装
-
-## ⚠️ 注意事項
-
-- このプラグインはセキュリティ監査目的で設計されています
-- ユーザーのプライバシーに配慮し、適切な通知と同意を得てください
-- 地域のプライバシー法規（GDPR、個人情報保護法など）を遵守してください
-- 動画ファイルは定期的に削除することを推奨します
-
-## 📄 ライセンス
-
-MIT License
-
-## 🤝 コントリビューション
-
-プルリクエストを歓迎します！大きな変更の場合は、まずissueを開いて変更内容を議論してください。
-
-## 📝 変更履歴
-
-### v0.2 (2025-10-04)
-- シンプルな設計に変更
-- カスタム投稿タイプを削除し、ログファイル方式に変更
-- コード量を大幅削減
-
-### v0.1 (2025-10-04)
 - 初回リリース
-- 基本的な動画取得・保存機能
+- ログイン時の動画キャプチャ
+- 安全な保存の実装
+- 動画閲覧用の管理インターフェース
+- プライバシー通知とユーザー通知
+- 自動ファイル整理
+- アンインストールクリーンアップ
 
-## 👤 作者
+## ロードマップ
 
-Kubo Mikiya
+今後の機能候補：
 
-## 🐛 バグ報告
+- [ ] 設定用の設定ページ
+- [ ] 動画保持ポリシー
+- [ ] ログイン失敗時のメール通知
+- [ ] セキュリティプラグインとの統合
+- [ ] エクスポート機能
+- [ ] 高度なフィルタリングと検索
+- [ ] マルチサイト対応
+- [ ] 多言語対応
 
-バグを発見した場合は、[Issues](https://github.com/YOUR_USERNAME/wordpress-login-video-audit/issues)で報告してください。
+## FAQ
+
+**Q: これはログインページを遅くしますか？**  
+A: いいえ。動画キャプチャは非同期で行われ、ログインプロセスをブロックしません。
+
+**Q: ユーザーがカメラを持っていない場合は？**  
+A: ログインは通常通り進行します。動画キャプチャはオプションで非ブロッキングです。
+
+**Q: 特定のユーザーの動画キャプチャを無効化できますか？**  
+A: 現在はできませんが、この機能は将来のバージョンで追加される可能性があります。
+
+**Q: 動画はどのくらい保持する必要がありますか？**  
+A: これはセキュリティとコンプライアンス要件によります。保持ポリシーの実装を検討してください。
+
+**Q: これはGDPRに準拠していますか？**  
+A: プラグインはコンプライアンスのためのツールを提供しますが、あなたの実装があなたの管轄地域の法的要件を満たすことを確認する必要があります。
+
+## 謝辞
+
+- 優れたドキュメントを提供するWordPressコミュニティ
+- MediaRecorder API仕様への貢献者
+- 監査証跡の重要性を強調するセキュリティ研究者

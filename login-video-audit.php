@@ -1,58 +1,247 @@
 <?php
 /**
  * Plugin Name: Login Video Audit
- * Description: ログイン時に顔動画を取得して保存（シンプル版）
- * Version: 0.2
+ * Plugin URI: https://github.com/yourusername/login-video-audit
+ * Description: Records a short video during login for security audit purposes. Videos are stored securely and accessible only to administrators.
+ * Version: 1.0.0
+ * Requires at least: 5.0
+ * Requires PHP: 7.4
+ * Author: Your Name
+ * Author URI: https://yourwebsite.com
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: login-video-audit
+ * Domain Path: /languages
  */
 
-if (!defined('ABSPATH')) exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
-// ログイン画面にスクリプトを読み込み
-add_action('login_enqueue_scripts', function () {
-  wp_enqueue_script('lva', plugin_dir_url(__FILE__).'login-video.js', [], '0.2', true);
-  wp_localize_script('lva', 'LVA', [
-    'ajax'  => admin_url('admin-ajax.php'),
-    'nonce' => wp_create_nonce('lva_nonce')
-  ]);
-});
+// プラグイン定数。
+define( 'LVA_VERSION', '1.0.0' );
+define( 'LVA_SEC', 1.5 );
+define( 'LVA_MAX_BYTES', 2000000 );
+define( 'LVA_DIR', 'login-videos' );
 
-// 動画アップロード処理
-add_action('wp_ajax_nopriv_lva_upload', function() {
-  if (!check_ajax_referer('lva_nonce', 'nonce', false)) wp_send_json_error();
-
-  $video = $_FILES['video'] ?? null;
-  if (!$video || $video['error'] !== UPLOAD_ERR_OK || $video['size'] > 2000000) {
-    wp_send_json_error();
-  }
-
-  // 保存先ディレクトリ
-  $upload = wp_upload_dir();
-  $dir = trailingslashit($upload['basedir']) . 'login-videos';
-  wp_mkdir_p($dir);
-  
-  // .htaccessで保護
-  $htaccess = $dir . '/.htaccess';
-  if (!file_exists($htaccess)) {
-    file_put_contents($htaccess, "Require all denied\n");
-  }
-
-  // ファイル保存
-  $filename = date('Ymd_His') . '_' . wp_generate_password(8, false) . '.webm';
-  $filepath = $dir . '/' . $filename;
-  
-  if (move_uploaded_file($video['tmp_name'], $filepath)) {
-    // ログファイルに記録
-    $log = $dir . '/access.log';
-    $entry = sprintf(
-      "[%s] User: %s, IP: %s, File: %s\n",
-      date('Y-m-d H:i:s'),
-      sanitize_text_field($_POST['username'] ?? 'unknown'),
-      $_SERVER['REMOTE_ADDR'] ?? '',
-      $filename
+/**
+ * ログインページでスクリプトを読み込み。
+ */
+function lva_enqueue_login_scripts() {
+    wp_enqueue_script(
+        'lva',
+        plugin_dir_url( __FILE__ ) . 'login-video.js',
+        array(),
+        LVA_VERSION,
+        true
     );
-    file_put_contents($log, $entry, FILE_APPEND);
-    wp_send_json_success();
-  }
-  
-  wp_send_json_error();
-});
+    
+    wp_localize_script(
+        'lva',
+        'LVA',
+        array(
+            'ajax'   => admin_url( 'admin-ajax.php' ),
+            'nonce'  => wp_create_nonce( 'lva_nonce' ),
+            'sec'    => LVA_SEC,
+            'notice' => __(
+                'This site captures a short video during login for security audit purposes.',
+                'login-video-audit'
+            ),
+        )
+    );
+}
+add_action( 'login_enqueue_scripts', 'lva_enqueue_login_scripts' );
+
+/**
+ * ログインメッセージを表示。
+ *
+ * @param string $message ログインメッセージ。
+ * @return string 修正されたログインメッセージ。
+ */
+function lva_login_message( $message ) {
+    $notice = sprintf(
+        '<p style="text-align:center;background:#fff3cd;border:1px solid #ffe69c;padding:8px;border-radius:8px;">%s</p>',
+        esc_html__(
+            'Camera access will be requested for security audit purposes (short video, admin viewing only).',
+            'login-video-audit'
+        )
+    );
+    return $notice . $message;
+}
+add_action( 'login_message', 'lva_login_message' );
+
+/**
+ * AJAX経由で動画アップロードを処理。
+ */
+function lva_upload() {
+    if ( ! check_ajax_referer( 'lva_nonce', 'nonce', false ) ) {
+        wp_send_json_error( 'bad_nonce', 400 );
+    }
+
+    // 入力をサニタイズ。
+    $username = isset( $_POST['username'] ) ? sanitize_text_field( wp_unslash( $_POST['username'] ) ) : '';
+    $ua       = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 255 ) : '';
+    $ip       = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+    $blob     = isset( $_FILES['video'] ) ? $_FILES['video'] : null;
+
+    if ( ! $blob || UPLOAD_ERR_OK !== $blob['error'] ) {
+        wp_send_json_error( 'no_file', 400 );
+    }
+    
+    if ( $blob['size'] > LVA_MAX_BYTES ) {
+        wp_send_json_error( 'too_large', 413 );
+    }
+
+    // アップロードディレクトリを作成。
+    $upload_dir = wp_upload_dir();
+    $base_dir   = trailingslashit( $upload_dir['basedir'] ) . LVA_DIR . '/' . gmdate( 'Y/m' );
+    
+    if ( ! wp_mkdir_p( $base_dir ) ) {
+        wp_send_json_error( 'mkdir_failed', 500 );
+    }
+
+    // .htaccessでディレクトリを保護。
+    $htaccess = $base_dir . '/.htaccess';
+    if ( ! file_exists( $htaccess ) ) {
+        file_put_contents( $htaccess, "Require all denied\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+    }
+
+    // ファイル名を生成。
+    $filename = sprintf(
+        'lva_%s_%s.webm',
+        gmdate( 'Ymd_His' ),
+        wp_generate_password( 6, false )
+    );
+    $dest = $base_dir . '/' . $filename;
+    
+    if ( ! move_uploaded_file( $blob['tmp_name'], $dest ) ) {
+        wp_send_json_error( 'move_failed', 500 );
+    }
+
+    // カスタム投稿タイプに記録。
+    $post_id = wp_insert_post(
+        array(
+            'post_type'    => 'lva_log',
+            'post_status'  => 'private',
+            'post_title'   => sprintf(
+                /* translators: 1: Date and time, 2: Username */
+                __( 'Login Video %1$s (%2$s)', 'login-video-audit' ),
+                date_i18n( 'Y-m-d H:i:s' ),
+                $username ? $username : 'unknown'
+            ),
+            'post_content' => '',
+        )
+    );
+    
+    if ( $post_id ) {
+        add_post_meta( $post_id, '_lva_path', $dest );
+        add_post_meta(
+            $post_id,
+            '_lva_rel',
+            str_replace( trailingslashit( $upload_dir['basedir'] ), '', $dest )
+        );
+        add_post_meta( $post_id, '_lva_username', $username );
+        add_post_meta( $post_id, '_lva_ip', $ip );
+        add_post_meta( $post_id, '_lva_ua', $ua );
+    }
+
+    wp_send_json_success( array( 'ok' => true ) );
+}
+add_action( 'wp_ajax_nopriv_lva_upload', 'lva_upload' );
+
+/**
+ * ログイン動画ログ用のカスタム投稿タイプを登録。
+ */
+function lva_register_post_type() {
+    register_post_type(
+        'lva_log',
+        array(
+            'label'          => __( 'Login Videos', 'login-video-audit' ),
+            'public'         => false,
+            'show_ui'        => true,
+            'capability_type' => 'post',
+            'map_meta_cap'   => true,
+            'supports'       => array( 'title' ),
+            'menu_position'  => 75,
+            'menu_icon'      => 'dashicons-video-alt2',
+        )
+    );
+}
+add_action( 'init', 'lva_register_post_type' );
+
+/**
+ * 管理画面リストにカスタムカラムを追加。
+ *
+ * @param array $cols 既存のカラム。
+ * @return array 修正されたカラム。
+ */
+function lva_manage_columns( $cols ) {
+    $cols['lva_user'] = __( 'User', 'login-video-audit' );
+    $cols['lva_ip']   = __( 'IP Address', 'login-video-audit' );
+    $cols['lva_vid']  = __( 'Video', 'login-video-audit' );
+    return $cols;
+}
+add_filter( 'manage_lva_log_posts_columns', 'lva_manage_columns' );
+
+/**
+ * カスタムカラムの内容を表示。
+ *
+ * @param string $col     カラム名。
+ * @param int    $post_id 投稿ID。
+ */
+function lva_custom_column_content( $col, $post_id ) {
+    if ( 'lva_user' === $col ) {
+        echo esc_html( get_post_meta( $post_id, '_lva_username', true ) );
+    }
+    
+    if ( 'lva_ip' === $col ) {
+        echo esc_html( get_post_meta( $post_id, '_lva_ip', true ) );
+    }
+    
+    if ( 'lva_vid' === $col ) {
+        $rel = get_post_meta( $post_id, '_lva_rel', true );
+        $url = wp_nonce_url(
+            admin_url( 'admin-post.php?action=lva_dl&id=' . $post_id ),
+            'lva_dl_' . $post_id
+        );
+        
+        if ( $rel ) {
+            printf(
+                '<a class="button" href="%s">%s</a>',
+                esc_url( $url ),
+                esc_html__( 'Play/Download', 'login-video-audit' )
+            );
+        } else {
+            echo '-';
+        }
+    }
+}
+add_action( 'manage_lva_log_posts_custom_column', 'lva_custom_column_content', 10, 2 );
+
+/**
+ * 権限チェック付きで動画ダウンロードを処理。
+ */
+function lva_download_video() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_die( esc_html__( 'Forbidden', 'login-video-audit' ) );
+    }
+    
+    $id = isset( $_GET['id'] ) ? intval( $_GET['id'] ) : 0;
+    
+    if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'lva_dl_' . $id ) ) {
+        wp_die( esc_html__( 'Invalid nonce', 'login-video-audit' ) );
+    }
+    
+    $path = get_post_meta( $id, '_lva_path', true );
+    
+    if ( ! $path || ! file_exists( $path ) ) {
+        wp_die( esc_html__( 'File not found', 'login-video-audit' ) );
+    }
+
+    header( 'Content-Type: video/webm' );
+    header( 'Content-Length: ' . filesize( $path ) );
+    header( 'Content-Disposition: inline; filename="' . basename( $path ) . '"' );
+    readfile( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+    exit;
+}
+add_action( 'admin_post_lva_dl', 'lva_download_video' );

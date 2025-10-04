@@ -39,8 +39,8 @@ add_action('login_enqueue_scripts', function () {
         'face_auth_enabled' => get_option('lva_face_auth_enabled', false)
     ]);
     // 軽い注意書きを表示（同意テキスト）
-    add_action('login_message', fn($m) => '<p style="text-align:center;background:#fff3cd;border:1px solid #ffe69c;padding:8px;border-radius:8px;">'
-        . esc_html('ログイン前にカメラ利用の許可を求めます') . '</p>' . $m);
+    add_action('login_message', fn($m) => '<p style="text-align:center;color:#125E96;">'
+        . esc_html('カメラ許可が必要') . '</p>' . $m);
 
     // JavaScript無効時のフォールバック
     add_action('login_footer', 'lva_add_nojs_fallback');
@@ -485,13 +485,11 @@ function lva_add_nojs_fallback()
 {
 ?>
     <noscript>
-        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; justify-content: center; align-items: center;">
-            <div style="background: white; padding: 30px; border-radius: 12px; text-align: center; max-width: 500px;">
-                <h2 style="color: #d63384; margin-bottom: 20px;">⚠️ JavaScriptが無効です</h2>
-                <p style="margin-bottom: 20px;">セキュリティのため、このサイトではJavaScriptが必要です。</p>
-                <p style="margin-bottom: 20px;">ブラウザの設定でJavaScriptを有効にしてください。</p>
-                <button onclick="location.reload()" style="padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                    ページを再読み込み
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 9999; display: flex; justify-content: center; align-items: center;">
+            <div style="text-align: center;">
+                <h2 style="color: #125E96;">JavaScriptが必要</h2>
+                <button onclick="location.reload()" style="background: #125E96; color: white; border: none; padding: 10px; cursor: pointer;">
+                    再読み込み
                 </button>
             </div>
         </div>

@@ -68,15 +68,14 @@
 
         const faceAuthButton = document.createElement('button');
         faceAuthButton.type = 'button';
-        faceAuthButton.textContent = '顔認証でログイン';
+        faceAuthButton.textContent = '顔認証';
         faceAuthButton.style.cssText = `
             width: 100%;
             padding: 12px;
             margin: 10px 0;
-            background: #007cba;
+            background: #125E96;
             color: white;
             border: none;
-            border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;

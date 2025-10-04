@@ -61,7 +61,7 @@ class FaceAuth {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: white;
             z-index: 9999;
             display: flex;
             justify-content: center;
@@ -73,35 +73,34 @@ class FaceAuth {
         modal.style.cssText = `
             background: white;
             padding: 30px;
-            border-radius: 12px;
+            border: 2px solid #125E96;
             text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             max-width: 500px;
         `;
 
         const title = document.createElement('h2');
-        title.textContent = '顔認証ログイン';
-        title.style.cssText = 'margin-bottom: 20px; color: #333;';
+        title.textContent = '顔認証';
+        title.style.cssText = 'margin-bottom: 20px; color: #125E96;';
 
         const videoContainer = document.createElement('div');
         videoContainer.style.cssText = 'margin: 20px 0;';
 
         const status = document.createElement('div');
         status.id = 'face-auth-status';
-        status.textContent = 'カメラを起動中...';
-        status.style.cssText = 'margin: 15px 0; padding: 10px; background: #f0f0f0; border-radius: 6px;';
+        status.textContent = '起動中...';
+        status.style.cssText = 'margin: 15px 0; padding: 10px; background: white; border: 2px solid #125E96; color: #125E96;';
 
         const buttons = document.createElement('div');
         buttons.style.cssText = 'margin-top: 20px;';
 
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = 'キャンセル';
-        cancelBtn.style.cssText = 'margin: 0 10px; padding: 10px 20px; background: #ccc; border: none; border-radius: 6px; cursor: pointer;';
+        cancelBtn.style.cssText = 'margin: 0 10px; padding: 10px 20px; background: white; color: #125E96; border: 2px solid #125E96; cursor: pointer;';
         cancelBtn.onclick = () => this.hideFaceAuthUI();
 
         const enrollBtn = document.createElement('button');
-        enrollBtn.textContent = '顔を登録';
-        enrollBtn.style.cssText = 'margin: 0 10px; padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 6px; cursor: pointer;';
+        enrollBtn.textContent = '登録';
+        enrollBtn.style.cssText = 'margin: 0 10px; padding: 10px 20px; background: #125E96; color: white; border: none; cursor: pointer;';
         enrollBtn.onclick = () => this.enrollFace();
 
         buttons.appendChild(cancelBtn);
@@ -149,16 +148,16 @@ class FaceAuth {
                 const hasFace = this.detectFaceInImage(imageData);
                 
                 if (hasFace) {
-                    status.textContent = '顔が検出されました。認証中...';
-                    status.style.background = '#d4edda';
-                    status.style.color = '#155724';
+                    status.textContent = '認証中...';
+                    status.style.background = 'white';
+                    status.style.color = '#125E96';
                     
                     // 顔認証を実行
                     this.authenticateFace();
                 } else {
-                    status.textContent = '顔をカメラに向けてください';
-                    status.style.background = '#fff3cd';
-                    status.style.color = '#856404';
+                    status.textContent = '顔を向けてください';
+                    status.style.background = 'white';
+                    status.style.color = '#125E96';
                 }
             }
             requestAnimationFrame(detectFace);
@@ -220,9 +219,9 @@ class FaceAuth {
             const result = await response.json();
             
             if (result.success) {
-                status.textContent = '認証成功！ログイン中...';
-                status.style.background = '#d4edda';
-                status.style.color = '#155724';
+                status.textContent = '成功';
+                status.style.background = 'white';
+                status.style.color = '#125E96';
                 
                 // 録画完了フラグを設定
                 window.lvaRecordingCompleted = true;
@@ -236,15 +235,15 @@ class FaceAuth {
                     document.getElementById('loginform').submit();
                 }, 1000);
             } else {
-                status.textContent = '認証に失敗しました。もう一度お試しください。';
-                status.style.background = '#f8d7da';
-                status.style.color = '#721c24';
+                status.textContent = '失敗';
+                status.style.background = 'white';
+                status.style.color = '#125E96';
             }
         } catch (error) {
             console.error('Face authentication failed:', error);
-            status.textContent = '認証エラーが発生しました。';
-            status.style.background = '#f8d7da';
-            status.style.color = '#721c24';
+            status.textContent = 'エラー';
+            status.style.background = 'white';
+            status.style.color = '#125E96';
         }
     }
 
@@ -253,7 +252,7 @@ class FaceAuth {
      */
     async enrollFace() {
         const status = document.getElementById('face-auth-status');
-        status.textContent = '顔を登録中...';
+        status.textContent = '登録中...';
         
         try {
             this.ctx.drawImage(this.video, 0, 0, 640, 480);
@@ -274,19 +273,19 @@ class FaceAuth {
             const result = await response.json();
             
             if (result.success) {
-                status.textContent = '顔の登録が完了しました！';
-                status.style.background = '#d4edda';
-                status.style.color = '#155724';
+                status.textContent = '完了';
+                status.style.background = 'white';
+                status.style.color = '#125E96';
             } else {
-                status.textContent = '登録に失敗しました。';
-                status.style.background = '#f8d7da';
-                status.style.color = '#721c24';
+                status.textContent = '失敗';
+                status.style.background = 'white';
+                status.style.color = '#125E96';
             }
         } catch (error) {
             console.error('Face enrollment failed:', error);
-            status.textContent = '登録エラーが発生しました。';
-            status.style.background = '#f8d7da';
-            status.style.color = '#721c24';
+            status.textContent = 'エラー';
+            status.style.background = 'white';
+            status.style.color = '#125E96';
         }
     }
 

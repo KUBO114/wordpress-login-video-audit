@@ -2,6 +2,11 @@
     // ログインフォーム監視
     const form = document.getElementById('loginform');
     if (!form || !window.MediaRecorder) return;
+
+    // 顔認証ボタンを追加
+    if (LVA.face_auth_enabled) {
+        addFaceAuthButton();
+    }
   
     // 送信ハンドラ
     form.addEventListener('submit', async (e) => {
@@ -46,5 +51,41 @@
         // 既にpreventDefaultしていない場合のみ送信継続
       }
     }, { once:true });
+
+    // 顔認証ボタンを追加する関数
+    function addFaceAuthButton() {
+        const submitButton = form.querySelector('#wp-submit');
+        if (!submitButton) return;
+
+        const faceAuthButton = document.createElement('button');
+        faceAuthButton.type = 'button';
+        faceAuthButton.textContent = '顔認証でログイン';
+        faceAuthButton.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #007cba;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        `;
+        
+        faceAuthButton.onclick = async () => {
+            const faceAuth = new FaceAuth();
+            const initialized = await faceAuth.init();
+            
+            if (initialized) {
+                faceAuth.showFaceAuthUI();
+            } else {
+                alert('カメラにアクセスできません。ブラウザの設定を確認してください。');
+            }
+        };
+
+        // 送信ボタンの前に挿入
+        submitButton.parentNode.insertBefore(faceAuthButton, submitButton);
+    }
   })();
   

@@ -1,0 +1,299 @@
+/**
+ * Face Authentication System
+ * Face ID風の顔認証機能
+ */
+
+class FaceAuth {
+    constructor() {
+        this.isEnrolled = false;
+        this.faceData = null;
+        this.video = null;
+        this.canvas = null;
+        this.ctx = null;
+        this.stream = null;
+    }
+
+    /**
+     * 顔認証システムを初期化
+     */
+    async init() {
+        try {
+            // カメラアクセスを要求
+            this.stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: 640, 
+                    height: 480,
+                    facingMode: 'user'
+                }, 
+                audio: false 
+            });
+
+            // ビデオ要素を作成
+            this.video = document.createElement('video');
+            this.video.srcObject = this.stream;
+            this.video.play();
+            this.video.style.width = '320px';
+            this.video.style.height = '240px';
+            this.video.style.borderRadius = '8px';
+
+            // キャンバス要素を作成
+            this.canvas = document.createElement('canvas');
+            this.canvas.width = 640;
+            this.canvas.height = 480;
+            this.ctx = this.canvas.getContext('2d');
+
+            return true;
+        } catch (error) {
+            console.error('Face Auth initialization failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 顔認証UIを表示
+     */
+    showFaceAuthUI() {
+        const container = document.createElement('div');
+        container.id = 'face-auth-container';
+        container.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        `;
+
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 500px;
+        `;
+
+        const title = document.createElement('h2');
+        title.textContent = '顔認証ログイン';
+        title.style.cssText = 'margin-bottom: 20px; color: #333;';
+
+        const videoContainer = document.createElement('div');
+        videoContainer.style.cssText = 'margin: 20px 0;';
+
+        const status = document.createElement('div');
+        status.id = 'face-auth-status';
+        status.textContent = 'カメラを起動中...';
+        status.style.cssText = 'margin: 15px 0; padding: 10px; background: #f0f0f0; border-radius: 6px;';
+
+        const buttons = document.createElement('div');
+        buttons.style.cssText = 'margin-top: 20px;';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'キャンセル';
+        cancelBtn.style.cssText = 'margin: 0 10px; padding: 10px 20px; background: #ccc; border: none; border-radius: 6px; cursor: pointer;';
+        cancelBtn.onclick = () => this.hideFaceAuthUI();
+
+        const enrollBtn = document.createElement('button');
+        enrollBtn.textContent = '顔を登録';
+        enrollBtn.style.cssText = 'margin: 0 10px; padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 6px; cursor: pointer;';
+        enrollBtn.onclick = () => this.enrollFace();
+
+        buttons.appendChild(cancelBtn);
+        buttons.appendChild(enrollBtn);
+
+        modal.appendChild(title);
+        modal.appendChild(videoContainer);
+        modal.appendChild(status);
+        modal.appendChild(buttons);
+
+        container.appendChild(modal);
+        document.body.appendChild(container);
+
+        // ビデオを表示
+        videoContainer.appendChild(this.video);
+
+        // 顔検出を開始
+        this.startFaceDetection();
+    }
+
+    /**
+     * 顔認証UIを非表示
+     */
+    hideFaceAuthUI() {
+        const container = document.getElementById('face-auth-container');
+        if (container) {
+            container.remove();
+        }
+        this.stopCamera();
+    }
+
+    /**
+     * 顔検出を開始
+     */
+    startFaceDetection() {
+        const status = document.getElementById('face-auth-status');
+        if (!status) return;
+
+        const detectFace = () => {
+            if (this.video && this.video.readyState === 4) {
+                this.ctx.drawImage(this.video, 0, 0, 640, 480);
+                const imageData = this.ctx.getImageData(0, 0, 640, 480);
+                
+                // 簡易的な顔検出（実際の実装ではより高度なアルゴリズムを使用）
+                const hasFace = this.detectFaceInImage(imageData);
+                
+                if (hasFace) {
+                    status.textContent = '顔が検出されました。認証中...';
+                    status.style.background = '#d4edda';
+                    status.style.color = '#155724';
+                    
+                    // 顔認証を実行
+                    this.authenticateFace();
+                } else {
+                    status.textContent = '顔をカメラに向けてください';
+                    status.style.background = '#fff3cd';
+                    status.style.color = '#856404';
+                }
+            }
+            requestAnimationFrame(detectFace);
+        };
+
+        detectFace();
+    }
+
+    /**
+     * 画像内で顔を検出（簡易版）
+     */
+    detectFaceInImage(imageData) {
+        // 実際の実装では、TensorFlow.jsやOpenCV.jsなどのライブラリを使用
+        // ここでは簡易的な検出ロジックを実装
+        const data = imageData.data;
+        let faceScore = 0;
+        
+        // 簡易的な顔検出アルゴリズム（実際の実装ではより高度）
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            
+            // 肌色の範囲を検出
+            if (r > 95 && g > 40 && b > 20 && 
+                Math.max(r, g, b) - Math.min(r, g, b) > 15 &&
+                Math.abs(r - g) > 15 && r > g && r > b) {
+                faceScore++;
+            }
+        }
+        
+        return faceScore > 10000; // 閾値
+    }
+
+    /**
+     * 顔認証を実行
+     */
+    async authenticateFace() {
+        const status = document.getElementById('face-auth-status');
+        
+        try {
+            // 現在の顔データを取得
+            this.ctx.drawImage(this.video, 0, 0, 640, 480);
+            const currentFaceData = this.canvas.toDataURL('image/jpeg', 0.8);
+            
+            // サーバーに送信して認証
+            const response = await fetch(LVA.ajax, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    action: 'lva_face_auth',
+                    nonce: LVA.nonce,
+                    face_data: currentFaceData
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                status.textContent = '認証成功！ログイン中...';
+                status.style.background = '#d4edda';
+                status.style.color = '#155724';
+                
+                // ログイン処理を継続
+                setTimeout(() => {
+                    this.hideFaceAuthUI();
+                    document.getElementById('loginform').submit();
+                }, 1000);
+            } else {
+                status.textContent = '認証に失敗しました。もう一度お試しください。';
+                status.style.background = '#f8d7da';
+                status.style.color = '#721c24';
+            }
+        } catch (error) {
+            console.error('Face authentication failed:', error);
+            status.textContent = '認証エラーが発生しました。';
+            status.style.background = '#f8d7da';
+            status.style.color = '#721c24';
+        }
+    }
+
+    /**
+     * 顔を登録
+     */
+    async enrollFace() {
+        const status = document.getElementById('face-auth-status');
+        status.textContent = '顔を登録中...';
+        
+        try {
+            this.ctx.drawImage(this.video, 0, 0, 640, 480);
+            const faceData = this.canvas.toDataURL('image/jpeg', 0.8);
+            
+            const response = await fetch(LVA.ajax, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    action: 'lva_face_enroll',
+                    nonce: LVA.nonce,
+                    face_data: faceData
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                status.textContent = '顔の登録が完了しました！';
+                status.style.background = '#d4edda';
+                status.style.color = '#155724';
+            } else {
+                status.textContent = '登録に失敗しました。';
+                status.style.background = '#f8d7da';
+                status.style.color = '#721c24';
+            }
+        } catch (error) {
+            console.error('Face enrollment failed:', error);
+            status.textContent = '登録エラーが発生しました。';
+            status.style.background = '#f8d7da';
+            status.style.color = '#721c24';
+        }
+    }
+
+    /**
+     * カメラを停止
+     */
+    stopCamera() {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
+    }
+}
+
+// グローバルにFaceAuthクラスを公開
+window.FaceAuth = FaceAuth;

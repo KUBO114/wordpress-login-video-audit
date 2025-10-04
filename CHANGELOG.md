@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-10-04
+
+### Changed
+- カメラ許可メッセージの文言を簡潔に修正
+- ログインメッセージの表示テキストを短縮
+
+### Fixed
+- コードフォーマットの改善（インデント、スペースの統一）
+- PHPDocコメントの追加
+- 文字列の連結方法を統一
+
 ## [0.1.0] - 2025-10-04
 
 ### Added

@@ -276,10 +276,12 @@ class FaceAuth {
                 status.textContent = '完了';
                 status.style.background = 'white';
                 status.style.color = '#125E96';
+                console.log('Face enrollment successful:', result.data);
             } else {
-                status.textContent = '失敗';
+                status.textContent = '失敗: ' + (result.data || 'Unknown error');
                 status.style.background = 'white';
                 status.style.color = '#125E96';
+                console.error('Face enrollment failed:', result);
             }
         } catch (error) {
             console.error('Face enrollment failed:', error);

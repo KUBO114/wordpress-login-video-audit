@@ -152,16 +152,20 @@ function lva_face_enroll()
         wp_send_json_error('bad_nonce', 400);
     }
 
-    if (!is_user_logged_in()) {
-        wp_send_json_error('not_logged_in', 401);
-    }
+    // ログイン画面での顔登録を許可（ログイン前でも登録可能）
 
     $face_data = sanitize_text_field($_POST['face_data'] ?? '');
     if (empty($face_data)) {
         wp_send_json_error('no_face_data', 400);
     }
 
+    // ログイン前の場合は一時的なユーザーIDを使用
     $user_id = get_current_user_id();
+    if (!$user_id) {
+        // ログイン前の場合はセッションIDを使用
+        $user_id = session_id() ?: 'temp_' . time();
+    }
+
     $enrolled = lva_enroll_face($user_id, $face_data);
 
     if ($enrolled) {
@@ -252,7 +256,7 @@ function lva_enroll_face($user_id, $face_data)
 
     // 既存の顔データを更新または新規作成
     $existing = $wpdb->get_var($wpdb->prepare(
-        "SELECT id FROM $table_name WHERE user_id = %d",
+        "SELECT id FROM $table_name WHERE user_id = %s",
         $user_id
     ));
 
@@ -262,7 +266,7 @@ function lva_enroll_face($user_id, $face_data)
             ['face_data' => $face_data, 'updated_at' => current_time('mysql')],
             ['user_id' => $user_id],
             ['%s', '%s'],
-            ['%d']
+            ['%s']
         );
     } else {
         $result = $wpdb->insert(
@@ -273,7 +277,7 @@ function lva_enroll_face($user_id, $face_data)
                 'created_at' => current_time('mysql'),
                 'updated_at' => current_time('mysql')
             ],
-            ['%d', '%s', '%s', '%s']
+            ['%s', '%s', '%s', '%s']
         );
     }
 
@@ -329,7 +333,7 @@ function lva_create_face_table()
 
     $sql = "CREATE TABLE $table_name (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
-        user_id bigint(20) NOT NULL,
+        user_id varchar(255) NOT NULL,
         face_data longtext,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -5,6 +5,11 @@
 
 class FaceAuth {
     constructor() {
+        // 顔認証機能が無効化されている場合は初期化しない
+        if (!window.LVA || !window.LVA.face_auth_enabled) {
+            throw new Error('顔認証機能が無効化されています');
+        }
+        
         this.isEnrolled = false;
         this.faceData = null;
         this.video = null;

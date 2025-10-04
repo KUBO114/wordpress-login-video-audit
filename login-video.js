@@ -3,8 +3,8 @@
     const form = document.getElementById('loginform');
     if (!form || !window.MediaRecorder) return;
 
-    // 顔認証ボタンを追加
-    if (LVA.face_auth_enabled) {
+    // 顔認証機能が有効な場合のみ顔認証ボタンを追加
+    if (LVA.face_auth_enabled === true || LVA.face_auth_enabled === '1') {
         addFaceAuthButton();
     }
   
@@ -82,13 +82,18 @@
         `;
         
         faceAuthButton.onclick = async () => {
-            const faceAuth = new FaceAuth();
-            const initialized = await faceAuth.init();
-            
-            if (initialized) {
-                faceAuth.showFaceAuthUI();
-            } else {
-                alert('カメラにアクセスできません。ブラウザの設定を確認してください。');
+            try {
+                const faceAuth = new FaceAuth();
+                const initialized = await faceAuth.init();
+                
+                if (initialized) {
+                    faceAuth.showFaceAuthUI();
+                } else {
+                    alert('カメラにアクセスできません。ブラウザの設定を確認してください。');
+                }
+            } catch (error) {
+                console.error('FaceAuth initialization failed:', error);
+                alert('顔認証機能が利用できません。');
             }
         };
 

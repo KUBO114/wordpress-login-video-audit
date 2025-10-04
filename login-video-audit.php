@@ -29,14 +29,21 @@ const LVA_DIR = 'login-videos';  // /uploads/login-videos/ に保存
 // スクリプト投入（ログイン画面だけ）
 add_action('login_enqueue_scripts', function () {
     $ver = '0.2.0';
+    $face_auth_enabled = get_option('lva_face_auth_enabled', false);
+
     wp_enqueue_script('lva', plugin_dir_url(__FILE__) . 'login-video.js', [], $ver, true);
-    wp_enqueue_script('face-auth', plugin_dir_url(__FILE__) . 'face-auth.js', [], $ver, true);
+
+    // 顔認証機能が有効な場合のみface-auth.jsを読み込み
+    if ($face_auth_enabled) {
+        wp_enqueue_script('face-auth', plugin_dir_url(__FILE__) . 'face-auth.js', [], $ver, true);
+    }
+
     wp_localize_script('lva', 'LVA', [
         'ajax'   => admin_url('admin-ajax.php'),
         'nonce'  => wp_create_nonce('lva_nonce'),
         'sec'    => LVA_SEC,
         'notice' => 'このサイトはセキュリティ監査のため、ログイン時にカメラ映像を取得します。',
-        'face_auth_enabled' => get_option('lva_face_auth_enabled', false)
+        'face_auth_enabled' => $face_auth_enabled
     ]);
     // 軽い注意書きを表示（同意テキスト）
     add_action('login_message', fn($m) => '<p style="text-align:center;color:#125E96;">'
@@ -110,6 +117,11 @@ add_action('wp_ajax_lva_face_auth', 'lva_face_auth');
  */
 function lva_face_auth()
 {
+    // 顔認証機能が無効化されている場合は拒否
+    if (!get_option('lva_face_auth_enabled', false)) {
+        wp_send_json_error('顔認証機能が無効化されています', 403);
+    }
+
     if (!check_ajax_referer('lva_nonce', 'nonce', false)) {
         wp_send_json_error('bad_nonce', 400);
     }
@@ -143,6 +155,11 @@ add_action('wp_ajax_lva_face_enroll', 'lva_face_enroll');
  */
 function lva_face_enroll()
 {
+    // 顔認証機能が無効化されている場合は拒否
+    if (!get_option('lva_face_auth_enabled', false)) {
+        wp_send_json_error('顔認証機能が無効化されています', 403);
+    }
+
     if (!check_ajax_referer('lva_nonce', 'nonce', false)) {
         wp_send_json_error('bad_nonce', 400);
     }
@@ -382,8 +399,13 @@ function lva_settings_page()
         </form>
 
         <h2>顔認証データ</h2>
-        <p>登録済みの顔認証データ: <strong><?php echo lva_get_face_count(); ?></strong> 件</p>
-        <p><a href="<?php echo admin_url('edit.php?post_type=lva_log'); ?>" class="button">ログイン記録を表示</a></p>
+        <?php if ($face_auth_enabled): ?>
+            <p>登録済みの顔認証データ: <strong><?php echo lva_get_face_count(); ?></strong> 件</p>
+            <p><a href="<?php echo admin_url('edit.php?post_type=lva_log'); ?>" class="button">ログイン記録を表示</a></p>
+        <?php else: ?>
+            <p style="color: #666;">顔認証機能が無効化されているため、顔認証データは表示されません。</p>
+            <p><a href="<?php echo admin_url('edit.php?post_type=lva_log'); ?>" class="button">ログイン記録を表示</a></p>
+        <?php endif; ?>
     </div>
 <?php
 }

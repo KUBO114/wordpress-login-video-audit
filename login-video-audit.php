@@ -181,14 +181,13 @@ add_action('admin_menu', function () {
  */
 function lva_logs_page()
 {
-    $face_count = lva_get_face_count();
 ?>
     <div class="wrap">
         <h1>Login Video Audit - ログイン記録</h1>
 
         <div class="card">
-            <h2>顔認証データ</h2>
-            <p>登録済みの顔認証データ: <strong><?php echo $face_count; ?></strong> 件</p>
+            <h2>ログイン記録</h2>
+            <p>ログイン時の動画録画記録を管理します。</p>
             <p><a href="<?php echo admin_url('edit.php?post_type=lva_log'); ?>" class="button button-primary">ログイン記録を表示</a></p>
         </div>
 
@@ -197,23 +196,14 @@ function lva_logs_page()
             <p>このプラグインは以下の機能を提供します：</p>
             <ul>
                 <li><strong>録画必須ログイン</strong>: ログイン時に必ずカメラ録画が必要</li>
-                <li><strong>顔認証ログイン</strong>: Face ID風の顔認証機能</li>
                 <li><strong>セキュリティ記録</strong>: すべてのログインを記録・監視</li>
+                <li><strong>JavaScript無効対応</strong>: JavaScriptが無効でも録画が必須</li>
             </ul>
         </div>
     </div>
 <?php
 }
 
-/**
- * 顔認証データ数を取得
- */
-function lva_get_face_count()
-{
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'lva_face_data';
-    return $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
-}
 
 /**
  * 録画必須のログイン検証

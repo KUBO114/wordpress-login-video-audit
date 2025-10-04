@@ -203,7 +203,7 @@ GNU General Public License for more details.
 
 ## クレジット
 
-開発者：[あなたの名前]
+開発者：[MIKIYA KUBO]
 
 ## 変更履歴
 

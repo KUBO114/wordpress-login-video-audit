@@ -473,6 +473,11 @@ function lva_start_session()
 }
 add_action('init', 'lva_start_session', 1);
 
+// 自前アップデートロジック
+add_action('admin_init', 'lva_check_for_updates');
+add_action('wp_ajax_lva_manual_update', 'lva_manual_update');
+add_action('admin_notices', 'lva_update_notice');
+
 /**
  * JavaScript無効時のフォールバック
  */
@@ -517,4 +522,306 @@ function lva_add_nojs_fallback()
         });
     </script>
 <?php
+}
+
+/**
+ * アップデートチェッカー
+ */
+function lva_check_for_updates()
+{
+    $current_version = '0.2.0';
+    $last_check = get_option('lva_last_update_check', 0);
+    $check_interval = 24 * 60 * 60; // 24時間
+
+    // チェック間隔を確認
+    if (time() - $last_check < $check_interval) {
+        return;
+    }
+
+    // GitHub APIから最新バージョンを取得
+    $latest_version = lva_get_latest_version();
+
+    if ($latest_version && version_compare($latest_version, $current_version, '>')) {
+        update_option('lva_update_available', $latest_version);
+        update_option('lva_update_available_time', time());
+    } else {
+        delete_option('lva_update_available');
+    }
+
+    update_option('lva_last_update_check', time());
+}
+
+/**
+ * GitHub APIから最新バージョンを取得
+ */
+function lva_get_latest_version()
+{
+    $api_url = 'https://api.github.com/repos/KUBO114/wordpress-login-video-audit/releases/latest';
+
+    $response = wp_remote_get($api_url, [
+        'timeout' => 30,
+        'headers' => [
+            'User-Agent' => 'WordPress-Plugin-Update-Checker'
+        ]
+    ]);
+
+    if (is_wp_error($response)) {
+        return false;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+
+    if (isset($data['tag_name'])) {
+        return ltrim($data['tag_name'], 'v');
+    }
+
+    return false;
+}
+
+/**
+ * アップデート通知
+ */
+function lva_update_notice()
+{
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    $update_available = get_option('lva_update_available');
+    if (!$update_available) {
+        return;
+    }
+
+    $current_version = '0.2.0';
+    $update_time = get_option('lva_update_available_time', 0);
+    $time_ago = human_time_diff($update_time);
+
+?>
+    <div class="notice notice-warning is-dismissible">
+        <p>
+            <strong>Login Video Audit</strong>: 新しいバージョン <code><?php echo esc_html($update_available); ?></code> が利用可能です。
+            （現在: <?php echo esc_html($current_version); ?>）
+            <a href="#" id="lva-manual-update" class="button button-primary" style="margin-left: 10px;">
+                今すぐ更新
+            </a>
+            <span id="lva-update-status" style="margin-left: 10px;"></span>
+        </p>
+    </div>
+
+    <script>
+        document.getElementById('lva-manual-update').addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const button = this;
+            const status = document.getElementById('lva-update-status');
+
+            button.disabled = true;
+            button.textContent = '更新中...';
+            status.textContent = 'GitHubから最新版をダウンロード中...';
+
+            fetch(ajaxurl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        action: 'lva_manual_update',
+                        nonce: '<?php echo wp_create_nonce('lva_update_nonce'); ?>'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        status.textContent = '更新完了！ページを再読み込みします...';
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        status.textContent = '更新に失敗しました: ' + data.data;
+                        button.disabled = false;
+                        button.textContent = '今すぐ更新';
+                    }
+                })
+                .catch(error => {
+                    status.textContent = 'エラーが発生しました: ' + error.message;
+                    button.disabled = false;
+                    button.textContent = '今すぐ更新';
+                });
+        });
+    </script>
+<?php
+}
+
+/**
+ * 手動アップデート処理
+ */
+function lva_manual_update()
+{
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('権限がありません', 403);
+    }
+
+    if (!wp_verify_nonce($_POST['nonce'] ?? '', 'lva_update_nonce')) {
+        wp_send_json_error('Nonce検証に失敗しました', 400);
+    }
+
+    $latest_version = get_option('lva_update_available');
+    if (!$latest_version) {
+        wp_send_json_error('更新可能なバージョンが見つかりません', 404);
+    }
+
+    // バックアップを作成
+    $backup_result = lva_create_backup();
+    if (!$backup_result) {
+        wp_send_json_error('バックアップの作成に失敗しました', 500);
+    }
+
+    // 最新版をダウンロード
+    $download_result = lva_download_latest_version();
+    if (!$download_result) {
+        wp_send_json_error('最新版のダウンロードに失敗しました', 500);
+    }
+
+    // 一時ファイルを保存
+    set_transient('lva_temp_update_file', $download_result, 300);
+
+    // ファイルを更新
+    $update_result = lva_update_files();
+    if (!$update_result) {
+        wp_send_json_error('ファイルの更新に失敗しました', 500);
+    }
+
+    // 更新完了
+    delete_option('lva_update_available');
+    update_option('lva_last_update_check', time());
+
+    wp_send_json_success([
+        'message' => '更新が完了しました',
+        'version' => $latest_version
+    ]);
+}
+
+/**
+ * バックアップを作成
+ */
+function lva_create_backup()
+{
+    $plugin_dir = plugin_dir_path(__FILE__);
+    $backup_dir = WP_CONTENT_DIR . '/lva-backups/' . date('Y-m-d_H-i-s');
+
+    if (!wp_mkdir_p($backup_dir)) {
+        return false;
+    }
+
+    $files = [
+        'login-video-audit.php',
+        'login-video.js',
+        'face-auth.js',
+        'README.md',
+        'CHANGELOG.md'
+    ];
+
+    foreach ($files as $file) {
+        $source = $plugin_dir . $file;
+        $dest = $backup_dir . '/' . $file;
+
+        if (file_exists($source)) {
+            copy($source, $dest);
+        }
+    }
+
+    return true;
+}
+
+/**
+ * 最新版をダウンロード
+ */
+function lva_download_latest_version()
+{
+    $download_url = 'https://github.com/KUBO114/wordpress-login-video-audit/archive/main.zip';
+    $temp_file = wp_tempnam('lva_update');
+
+    $response = wp_remote_get($download_url, [
+        'timeout' => 300,
+        'stream' => true,
+        'filename' => $temp_file
+    ]);
+
+    if (is_wp_error($response)) {
+        return false;
+    }
+
+    return $temp_file;
+}
+
+/**
+ * ファイルを更新
+ */
+function lva_update_files()
+{
+    $temp_file = get_transient('lva_temp_update_file');
+    if (!$temp_file || !file_exists($temp_file)) {
+        return false;
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($temp_file) !== TRUE) {
+        return false;
+    }
+
+    $plugin_dir = plugin_dir_path(__FILE__);
+    $extract_dir = WP_CONTENT_DIR . '/lva-temp-extract/';
+
+    if (!wp_mkdir_p($extract_dir)) {
+        return false;
+    }
+
+    $zip->extractTo($extract_dir);
+    $zip->close();
+
+    // ファイルをコピー
+    $source_dir = $extract_dir . 'wordpress-login-video-audit-main/';
+    $files = [
+        'login-video-audit.php',
+        'login-video.js',
+        'face-auth.js',
+        'README.md',
+        'CHANGELOG.md'
+    ];
+
+    foreach ($files as $file) {
+        $source = $source_dir . $file;
+        $dest = $plugin_dir . $file;
+
+        if (file_exists($source)) {
+            copy($source, $dest);
+        }
+    }
+
+    // 一時ファイルを削除
+    unlink($temp_file);
+    lva_recursive_rmdir($extract_dir);
+
+    return true;
+}
+
+/**
+ * 再帰的にディレクトリを削除
+ */
+function lva_recursive_rmdir($dir)
+{
+    if (is_dir($dir)) {
+        $objects = scandir($dir);
+        foreach ($objects as $object) {
+            if ($object != "." && $object != "..") {
+                if (is_dir($dir . "/" . $object)) {
+                    lva_recursive_rmdir($dir . "/" . $object);
+                } else {
+                    unlink($dir . "/" . $object);
+                }
+            }
+        }
+        rmdir($dir);
+    }
 }

@@ -10,7 +10,7 @@
         const username = (document.getElementById('user_login')||{}).value || '';
         // 許可表示（簡易）
         const note = document.createElement('div');
-        note.textContent = LVA.notice + '（約1.5秒）';
+        note.textContent = LVA.notice;
         note.style.cssText = 'margin:10px 0;padding:8px;background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;';
         form.prepend(note);
   

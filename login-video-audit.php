@@ -176,12 +176,11 @@ add_action('init', function () {
     register_post_type('lva_log', [
         'label' => 'Login Videos',
         'public' => false,
-        'show_ui' => true,
+        'show_ui' => true, // 管理画面を有効化
+        'show_in_menu' => false, // メニューには表示しない（サブメニューで管理）
         'capability_type' => 'post',
         'map_meta_cap' => true,
         'supports' => ['title'],
-        'menu_position' => 75,
-        'menu_icon' => 'dashicons-video-alt2',
     ]);
 });
 
@@ -367,6 +366,15 @@ add_action('admin_menu', function () {
         'lva_logs_page',
         'dashicons-video-alt2',
         75
+    );
+
+    // サブメニューとしてログイン記録一覧を追加
+    add_submenu_page(
+        'lva-logs',
+        'ログイン記録一覧',
+        'ログイン記録一覧',
+        'manage_options',
+        'edit.php?post_type=lva_log'
     );
 });
 

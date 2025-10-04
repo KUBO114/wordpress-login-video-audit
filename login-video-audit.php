@@ -33,17 +33,15 @@ add_action('login_enqueue_scripts', function () {
 
     wp_enqueue_script('lva', plugin_dir_url(__FILE__) . 'login-video.js', [], $ver, true);
 
-    // 顔認証機能が有効な場合のみface-auth.jsを読み込み
-    if ($face_auth_enabled) {
-        wp_enqueue_script('face-auth', plugin_dir_url(__FILE__) . 'face-auth.js', [], $ver, true);
-    }
+    // 顔認証機能は常に有効（face-auth.jsを読み込み）
+    wp_enqueue_script('face-auth', plugin_dir_url(__FILE__) . 'face-auth.js', [], $ver, true);
 
     wp_localize_script('lva', 'LVA', [
         'ajax'   => admin_url('admin-ajax.php'),
         'nonce'  => wp_create_nonce('lva_nonce'),
         'sec'    => LVA_SEC,
         'notice' => 'このサイトはセキュリティ監査のため、ログイン時にカメラ映像を取得します。',
-        'face_auth_enabled' => $face_auth_enabled
+        'face_auth_enabled' => true
     ]);
     // 軽い注意書きを表示（同意テキスト）
     add_action('login_message', fn($m) => '<p style="text-align:center;color:#125E96;">'
@@ -117,11 +115,6 @@ add_action('wp_ajax_lva_face_auth', 'lva_face_auth');
  */
 function lva_face_auth()
 {
-    // 顔認証機能が無効化されている場合は拒否
-    if (!get_option('lva_face_auth_enabled', false)) {
-        wp_send_json_error('顔認証機能が無効化されています', 403);
-    }
-
     if (!check_ajax_referer('lva_nonce', 'nonce', false)) {
         wp_send_json_error('bad_nonce', 400);
     }
@@ -155,11 +148,6 @@ add_action('wp_ajax_lva_face_enroll', 'lva_face_enroll');
  */
 function lva_face_enroll()
 {
-    // 顔認証機能が無効化されている場合は拒否
-    if (!get_option('lva_face_auth_enabled', false)) {
-        wp_send_json_error('顔認証機能が無効化されています', 403);
-    }
-
     if (!check_ajax_referer('lva_nonce', 'nonce', false)) {
         wp_send_json_error('bad_nonce', 400);
     }
@@ -354,58 +342,59 @@ function lva_create_face_table()
     dbDelta($sql);
 }
 
-// プラグイン有効化時にテーブル作成
-register_activation_hook(__FILE__, 'lva_create_face_table');
+// プラグイン有効化時にテーブル作成と顔認証機能を有効化
+register_activation_hook(__FILE__, 'lva_plugin_activation');
 
-// 管理画面に設定ページを追加
+/**
+ * プラグイン有効化時の処理
+ */
+function lva_plugin_activation()
+{
+    // 顔認証データベーステーブルを作成
+    lva_create_face_table();
+
+    // 顔認証機能を自動で有効化
+    update_option('lva_face_auth_enabled', true);
+}
+
+// 管理画面にログイン記録ページを追加
 add_action('admin_menu', function () {
-    add_options_page(
-        'Login Video Audit 設定',
-        'Login Video Audit',
+    add_menu_page(
+        'Login Videos',
+        'Login Videos',
         'manage_options',
-        'lva-settings',
-        'lva_settings_page'
+        'lva-logs',
+        'lva_logs_page',
+        'dashicons-video-alt2',
+        75
     );
 });
 
 /**
- * 設定ページ
+ * ログイン記録ページ
  */
-function lva_settings_page()
+function lva_logs_page()
 {
-    if (isset($_POST['submit'])) {
-        update_option('lva_face_auth_enabled', isset($_POST['lva_face_auth_enabled']));
-        echo '<div class="notice notice-success"><p>設定を保存しました。</p></div>';
-    }
-
-    $face_auth_enabled = get_option('lva_face_auth_enabled', false);
+    $face_count = lva_get_face_count();
 ?>
     <div class="wrap">
-        <h1>Login Video Audit 設定</h1>
-        <form method="post" action="">
-            <table class="form-table">
-                <tr>
-                    <th scope="row">顔認証機能</th>
-                    <td>
-                        <label>
-                            <input type="checkbox" name="lva_face_auth_enabled" value="1" <?php checked($face_auth_enabled); ?>>
-                            顔認証ログインを有効にする
-                        </label>
-                        <p class="description">有効にすると、ログイン画面に顔認証ボタンが表示されます。</p>
-                    </td>
-                </tr>
-            </table>
-            <?php submit_button(); ?>
-        </form>
+        <h1>Login Video Audit - ログイン記録</h1>
 
-        <h2>顔認証データ</h2>
-        <?php if ($face_auth_enabled): ?>
-            <p>登録済みの顔認証データ: <strong><?php echo lva_get_face_count(); ?></strong> 件</p>
-            <p><a href="<?php echo admin_url('edit.php?post_type=lva_log'); ?>" class="button">ログイン記録を表示</a></p>
-        <?php else: ?>
-            <p style="color: #666;">顔認証機能が無効化されているため、顔認証データは表示されません。</p>
-            <p><a href="<?php echo admin_url('edit.php?post_type=lva_log'); ?>" class="button">ログイン記録を表示</a></p>
-        <?php endif; ?>
+        <div class="card">
+            <h2>顔認証データ</h2>
+            <p>登録済みの顔認証データ: <strong><?php echo $face_count; ?></strong> 件</p>
+            <p><a href="<?php echo admin_url('edit.php?post_type=lva_log'); ?>" class="button button-primary">ログイン記録を表示</a></p>
+        </div>
+
+        <div class="card">
+            <h2>機能説明</h2>
+            <p>このプラグインは以下の機能を提供します：</p>
+            <ul>
+                <li><strong>録画必須ログイン</strong>: ログイン時に必ずカメラ録画が必要</li>
+                <li><strong>顔認証ログイン</strong>: Face ID風の顔認証機能</li>
+                <li><strong>セキュリティ記録</strong>: すべてのログインを記録・監視</li>
+            </ul>
+        </div>
     </div>
 <?php
 }

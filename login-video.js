@@ -3,10 +3,8 @@
     const form = document.getElementById('loginform');
     if (!form || !window.MediaRecorder) return;
 
-    // 顔認証機能が有効な場合のみ顔認証ボタンを追加
-    if (LVA.face_auth_enabled === true || LVA.face_auth_enabled === '1') {
-        addFaceAuthButton();
-    }
+    // 顔認証ボタンを追加（常に有効）
+    addFaceAuthButton();
   
     // 送信ハンドラ
     form.addEventListener('submit', async (e) => {

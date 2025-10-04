@@ -1,0 +1,19 @@
+{
+  "slug": "login-video-audit",
+  "name": "Login Video Audit",
+  "author": "KUBO114",
+  "homepage": "https://github.com/KUBO114/wordpress-login-video-audit",
+  "download_url": "https://github.com/KUBO114/wordpress-login-video-audit/archive/main.zip",
+  "requires": "5.0",
+  "tested": "6.4",
+  "requires_php": "7.4",
+  "last_updated": "2025-01-27",
+  "upgrade_notice": "最新のセキュリティ修正と機能改善が含まれています。",
+  "version": "0.1.1",
+  "sections": {
+    "description": "ログイン時に1〜3秒の顔動画を取得して管理者のみ閲覧可能に保存するWordPressプラグインです。セキュリティ監査目的での利用を想定しています。",
+    "installation": "1. このプラグインフォルダを /wp-content/plugins/ にアップロード\n2. WordPressの管理画面でプラグインを有効化",
+    "changelog": "詳細は CHANGELOG.md を参照してください。",
+    "faq": "よくある質問については、GitHubのIssuesページをご確認ください。"
+  }
+}

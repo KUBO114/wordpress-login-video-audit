@@ -25,8 +25,16 @@
 
 ## インストール
 
+### 手動インストール
+
 1. このプラグインフォルダを `/wp-content/plugins/` にアップロード
 2. WordPress の管理画面でプラグインを有効化
+
+### GitHub Updater を使用した自動更新
+
+1. [GitHub Updater](https://github.com/afragen/github-updater) プラグインをインストール
+2. 管理画面の「GitHub Updater」メニューから「Login Video Audit」を追加
+3. 自動更新が有効になります
 
 ## セキュリティ設定
 

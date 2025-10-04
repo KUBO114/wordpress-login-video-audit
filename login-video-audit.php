@@ -1,8 +1,18 @@
 <?php
+
 /**
  * Plugin Name: Login Video Audit
  * Description: ログイン時に1〜3秒の顔動画を取得して管理者のみ閲覧可能に保存。
  * Version: 0.1.1
+ * Author: KUBO114
+ * Plugin URI: https://github.com/KUBO114/wordpress-login-video-audit
+ * GitHub Plugin URI: https://github.com/KUBO114/wordpress-login-video-audit
+ * GitHub Branch: main
+ * Requires at least: 5.0
+ * Tested up to: 6.4
+ * Requires PHP: 7.4
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 
 if (!defined('ABSPATH')) exit;
@@ -14,17 +24,17 @@ const LVA_DIR = 'login-videos';  // /uploads/login-videos/ に保存
 
 // スクリプト投入（ログイン画面だけ）
 add_action('login_enqueue_scripts', function () {
-  $ver = '0.1.1';
-  wp_enqueue_script('lva', plugin_dir_url(__FILE__).'login-video.js', [], $ver, true);
-  wp_localize_script('lva', 'LVA', [
-    'ajax'   => admin_url('admin-ajax.php'),
-    'nonce'  => wp_create_nonce('lva_nonce'),
-    'sec'    => LVA_SEC,
-    'notice' => 'このサイトはセキュリティ監査のため、ログイン時にカメラ映像を取得します。'
-  ]);
-  // 軽い注意書きを表示（同意テキスト）
-  add_action('login_message', fn($m) => '<p style="text-align:center;background:#fff3cd;border:1px solid #ffe69c;padding:8px;border-radius:8px;">'
-. esc_html('ログイン前にカメラ利用の許可を求めます') . '</p>' . $m);
+    $ver = '0.1.1';
+    wp_enqueue_script('lva', plugin_dir_url(__FILE__) . 'login-video.js', [], $ver, true);
+    wp_localize_script('lva', 'LVA', [
+        'ajax'   => admin_url('admin-ajax.php'),
+        'nonce'  => wp_create_nonce('lva_nonce'),
+        'sec'    => LVA_SEC,
+        'notice' => 'このサイトはセキュリティ監査のため、ログイン時にカメラ映像を取得します。'
+    ]);
+    // 軽い注意書きを表示（同意テキスト）
+    add_action('login_message', fn($m) => '<p style="text-align:center;background:#fff3cd;border:1px solid #ffe69c;padding:8px;border-radius:8px;">'
+        . esc_html('ログイン前にカメラ利用の許可を求めます') . '</p>' . $m);
 });
 
 // AJAX: 動画アップロード
@@ -33,25 +43,26 @@ add_action('wp_ajax_nopriv_lva_upload', 'lva_upload');
  * Summary of lva_upload
  * @return void
  */
-function lva_upload() {
-  if (!check_ajax_referer('lva_nonce', 'nonce', false)) wp_send_json_error('bad_nonce', 400);
+function lva_upload()
+{
+    if (!check_ajax_referer('lva_nonce', 'nonce', false)) wp_send_json_error('bad_nonce', 400);
 
-  // 入力
-  $username = sanitize_text_field($_POST['username'] ?? '');
-  $ua       = substr(sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
-  $ip       = sanitize_text_field($_SERVER['REMOTE_ADDR'] ?? '');
-  $blob     = $_FILES['video'] ?? null;
+    // 入力
+    $username = sanitize_text_field($_POST['username'] ?? '');
+    $ua       = substr(sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
+    $ip       = sanitize_text_field($_SERVER['REMOTE_ADDR'] ?? '');
+    $blob     = $_FILES['video'] ?? null;
 
-  if (!$blob || $blob['error'] !== UPLOAD_ERR_OK) wp_send_json_error('no_file', 400);
-  if ($blob['size'] > LVA_MAX_BYTES) wp_send_json_error('too_large', 413);
+    if (!$blob || $blob['error'] !== UPLOAD_ERR_OK) wp_send_json_error('no_file', 400);
+    if ($blob['size'] > LVA_MAX_BYTES) wp_send_json_error('too_large', 413);
 
-  // 保存ディレクトリ
-  $up   = wp_upload_dir();
-  $base = trailingslashit($up['basedir']) . LVA_DIR . '/' . date('Y/m');
-  if (!wp_mkdir_p($base)) wp_send_json_error('mkdir_failed', 500);
+    // 保存ディレクトリ
+    $up   = wp_upload_dir();
+    $base = trailingslashit($up['basedir']) . LVA_DIR . '/' . date('Y/m');
+    if (!wp_mkdir_p($base)) wp_send_json_error('mkdir_failed', 500);
 
-  // 直リンク遮断（.htaccessでdeny）
-  $ht = "$base/.htaccess";
+    // 直リンク遮断（.htaccessでdeny）
+    $ht = "$base/.htaccess";
     if (!file_exists($ht))
         file_put_contents($ht, "Require all denied\n");
 
@@ -119,12 +130,12 @@ add_action('admin_post_lva_dl', function () {
     $id = intval($_GET['id'] ?? 0);
     if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', "lva_dl_$id"))
         wp_die('bad nonce');
-  $path = get_post_meta($id, '_lva_path', true);
-  if (!$path || !file_exists($path)) wp_die('not found');
+    $path = get_post_meta($id, '_lva_path', true);
+    if (!$path || !file_exists($path)) wp_die('not found');
 
-  header('Content-Type: video/webm');
-  header('Content-Length: '.filesize($path));
-  header('Content-Disposition: inline; filename="'.basename($path).'"');
-  readfile($path);
-  exit;
+    header('Content-Type: video/webm');
+    header('Content-Length: ' . filesize($path));
+    header('Content-Disposition: inline; filename="' . basename($path) . '"');
+    readfile($path);
+    exit;
 });

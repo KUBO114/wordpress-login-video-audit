@@ -9,7 +9,7 @@
   "requires_php": "7.4",
   "last_updated": "2025-01-27",
   "upgrade_notice": "最新のセキュリティ修正と機能改善が含まれています。",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "sections": {
     "description": "ログイン時に1〜3秒の顔動画を取得して管理者のみ閲覧可能に保存するWordPressプラグインです。セキュリティ監査目的での利用を想定しています。",
     "installation": "1. このプラグインフォルダを /wp-content/plugins/ にアップロード\n2. WordPressの管理画面でプラグインを有効化",

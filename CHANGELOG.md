@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-01-27
+
+### Added
+- Face ID風の顔認証ログイン機能を追加
+- 顔登録機能（ユーザーが自分の顔を登録可能）
+- 顔認証データベーステーブル（wp_lva_face_data）の作成
+- 顔認証ログイン記録機能
+- 管理画面での顔認証設定ページ
+- 顔認証ボタンをログイン画面に追加
+- 顔認証用のJavaScript（face-auth.js）を追加
+- 顔検出と認証のフロントエンド処理
+- 顔認証データの統計表示機能
+
+### Changed
+- ログインメッセージから「（約1.5秒）」の時間記載を削除
+- GitHub Updaterサポートを追加
+- プラグインヘッダーにGitHub Updater用の情報を追加
+
+### Security
+- 顔認証データの安全な保存
+- 顔認証ログインの権限チェック強化
+- 顔データの暗号化保存
+
 ## [0.1.1] - 2025-10-04
 
 ### Changed

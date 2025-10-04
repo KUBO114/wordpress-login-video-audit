@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Login Video Audit
  * Description: ログイン時に1〜3秒の顔動画を取得して管理者のみ閲覧可能に保存。
- * Version: 0.1.1
+ * Version: 0.2.0
  * Author: KUBO114
  * Plugin URI: https://github.com/KUBO114/wordpress-login-video-audit
  * GitHub Plugin URI: https://github.com/KUBO114/wordpress-login-video-audit
@@ -24,7 +24,7 @@ const LVA_DIR = 'login-videos';  // /uploads/login-videos/ に保存
 
 // スクリプト投入（ログイン画面だけ）
 add_action('login_enqueue_scripts', function () {
-    $ver = '0.1.1';
+    $ver = '0.2.0';
     wp_enqueue_script('lva', plugin_dir_url(__FILE__) . 'login-video.js', [], $ver, true);
     wp_enqueue_script('face-auth', plugin_dir_url(__FILE__) . 'face-auth.js', [], $ver, true);
     wp_localize_script('lva', 'LVA', [

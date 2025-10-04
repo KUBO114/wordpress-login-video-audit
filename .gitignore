@@ -1,0 +1,13 @@
+# WordPress
+.DS_Store
+.vscode/
+*.log
+
+# Development
+node_modules/
+.env
+.env.local
+
+# Backup files
+*.bak
+*~

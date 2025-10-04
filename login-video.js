@@ -1,11 +1,11 @@
 (function(){
-    // ログインフォームを監視
+    // ログインフォーム監視
     const form = document.getElementById('loginform');
     if (!form || !window.MediaRecorder) return;
   
     // 送信ハンドラ
     form.addEventListener('submit', async (e) => {
-      // 非常に短い録画。失敗してもログインは継続。
+      // すごく短い録画。失敗してもログインは継続。
       try {
         const username = (document.getElementById('user_login')||{}).value || '';
         // 許可表示（簡易）
